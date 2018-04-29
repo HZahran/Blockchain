@@ -28,6 +28,10 @@ public class Block {
         return transactions;
     }
 
+    public void addTransaction(Transaction transaction){
+        transactions.add(transaction);
+    }
+
     public String calculateHash() throws UnsupportedEncodingException, NoSuchAlgorithmException {
         return applySha256(prevHash + transactions.toString() + nonce);
     }

@@ -1,7 +1,7 @@
 import java.util.ArrayList;
 
 public class BlockChain {
-    ArrayList<Block> ledger = new ArrayList<Block>();
+    private ArrayList<Block> ledger = new ArrayList<Block>();
 
     public ArrayList<Block> getLedger() {
         return ledger;
@@ -23,7 +23,24 @@ public class BlockChain {
         return ledger.get(indx);
     }
 
-    public int getlongestChainLength(){
+    public int getlongestChainLength() {
         return ledger.size() - 1;
+    }
+
+    public boolean isEqual(BlockChain otherBlockChain) {
+
+        if (ledger.size() != otherBlockChain.getLedger().size())
+            return false;
+
+        for (int i = 0; i < otherBlockChain.getLedger().size(); i++) {
+            if (!ledger.get(i).equals(otherBlockChain.getLedger().get(i)))
+                return false;
+        }
+        return true;
+    }
+
+    @Override
+    public String toString() {
+        return ledger.toString();
     }
 }

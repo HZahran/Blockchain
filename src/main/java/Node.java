@@ -37,6 +37,10 @@ public class Node {
         return name;
     }
 
+    public HashMap<String, Block> getBlockCache() {
+        return blockCache;
+    }
+
     public ArrayList<Node> getPeers() {
         return peers;
     }
@@ -46,9 +50,9 @@ public class Node {
     }
 
     // Creating a transaction and start announcing it to the peers
-    public void sendTransaction(Node reciever, int amount) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, NoSuchProviderException, SignatureException, UnsupportedEncodingException {
+    public Transaction createTransaction(Node receiver, int amount) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, NoSuchProviderException, SignatureException, UnsupportedEncodingException {
         // Creating new transaction
-        Transaction trans = new Transaction(this, reciever, amount);
+        Transaction trans = new Transaction(this, receiver, amount);
 
         // Creating the digital signature
         byte[] signature = this.wallet.sign(trans.getId() + "#" + trans.getSender().getName() + "#" + trans.getReciever().getName() + "#" + trans.getAmount());
@@ -63,8 +67,7 @@ public class Node {
         System.out.println(trans.toString());
         System.out.println();
 
-        // Start announcing the transaction
-        announceTransaction(trans);
+        return trans;
     }
 
     // Announcing the received or the created transaction
@@ -78,7 +81,7 @@ public class Node {
                     idxs.add(idx);
 
                     // Printing the announcing procedure
-                    System.out.println(this.name + " announcing " + trans.getId() + " to " + peers.get(idx).getName());
+                    System.out.println(this.name + " announcing transaction " + trans.getId() + " to " + peers.get(idx).getName());
                     System.out.println();
 
                     // Announce the transaction to the peers
@@ -99,7 +102,7 @@ public class Node {
         if (!this.currentBlock.getTransactions().contains(trans)) {
 
             // Add it to the current block
-            this.currentBlock.getTransactions().add(trans);
+            this.currentBlock.addTransaction(trans);
 
             // Check if reached the maximum
             if (this.currentBlock.getTransactions().size() >= MAX_TRANSACTIONS) {
@@ -119,6 +122,13 @@ public class Node {
     }
 
     public void createBlock() throws UnsupportedEncodingException, NoSuchAlgorithmException {
+
+        // Assign prev hash values
+        if (blockChain.getLedger().size() == 0)
+            this.currentBlock.setPrevHash("");
+        else
+            this.currentBlock.setPrevHash(blockChain.getLedger().get(blockChain.getLedger().size() - 1).getHash());
+
         // Mine block
         this.currentBlock.mineBlock(DIFFICULTY);
 
@@ -138,7 +148,7 @@ public class Node {
                     idxs.add(idx);
 
                     // Printing the announcing procedure
-                    System.out.println(this.name + " announcing " + block.getHash() + " to " + peers.get(idx).getName());
+                    System.out.println(this.name + " announcing block" + block.getHash() + " to " + peers.get(idx).getName());
                     System.out.println();
 
                     // Announce the transaction to the peers
@@ -155,9 +165,23 @@ public class Node {
         // Check if I already have the received block or not
         if (!this.blockLength.containsKey(block.getHash())) {
 
+            if (this.currentBlock == null)
+                currentBlock = new Block();
+
             currentBlock.removeDuplicateTrans(block);
+
+            // Handle Genesis block case
+            if (block.getPrevHash().equals("")) {
+                blockLength.put(block.getHash(), 0);
+
+                if (blockChain.getLedger().size() == 0)
+                    blockChain.addBlock(block);
+                else
+                    blockCache.put(block.getHash(), block);
+            }
+
             // Drop it if the prev hash wasn't found
-            if (blockLength.containsKey(block.getPrevHash())) {
+            else if (blockLength.containsKey(block.getPrevHash())) {
 
                 // Check longest chain
                 int newLength = blockLength.get(block.getPrevHash()) + 1;
@@ -198,6 +222,14 @@ public class Node {
                 announceBlock(block);
             }
         }
+    }
+
+    public BlockChain getBlockChain() {
+        return blockChain;
+    }
+
+    public void setBlockChain(BlockChain blockChain) {
+        this.blockChain = blockChain;
     }
 
     @Override
