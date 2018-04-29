@@ -34,10 +34,7 @@ public class Block {
 
     public void mineBlock(int difficulty) throws UnsupportedEncodingException, NoSuchAlgorithmException {
 
-        String nonceKey = "";
-        while(difficulty -- > 0){
-            nonceKey += "0";
-        }
+        String nonceKey = new String(new char[difficulty]).replace('\0','0');
 
         do {
             this.hash = calculateHash();
@@ -69,5 +66,9 @@ public class Block {
     @Override
     public boolean equals(Object obj) {
         return this.hash == ((Block) obj).hash;
+    }
+
+    public void removeDuplicateTrans(Block block) {
+        transactions.removeAll(block.transactions);
     }
 }

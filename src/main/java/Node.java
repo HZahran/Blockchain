@@ -2,32 +2,35 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import java.io.UnsupportedEncodingException;
-import java.security.*;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.SignatureException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
 
 public class Node {
+    private static final int MAX_TRANSACTIONS = 2;
+    private static final int DIFFICULTY = 2;
     private static int UID = 0;
-    private int id;
-    private String name;
+    private int id; // For testing
+    private String name; // For testing
     private Wallet wallet;
     private BlockChain blockChain;
     private ArrayList<Node> peers;
     private Block currentBlock;
-    private HashMap<String, LinkedList<Block>> cache;
-    private HashSet<String> hashes;
-    private static final int MAX_TRANSACTIONS = 2;
-    private static final int DIFFICULTY = 2;
+    private HashMap<String, Block> blockCache;
+    private HashMap<String, Integer> blockLength; // Holding the level of all the received blocks
 
     public Node(String name) throws NoSuchAlgorithmException,
-            NoSuchProviderException, InvalidKeyException, InvalidAlgorithmParameterException, SignatureException {
+            NoSuchProviderException {
         this.id = UID++;
         this.name = name;
         this.wallet = new Wallet();
         this.peers = new ArrayList<Node>();
-        this.cache = new HashMap<String, LinkedList<Block>>();
+        this.blockCache = new HashMap<>();
+        this.blockLength = new HashMap<>();
+        this.blockChain = new BlockChain();
     }
 
     public String getName() {
@@ -99,7 +102,7 @@ public class Node {
             this.currentBlock.getTransactions().add(trans);
 
             // Check if reached the maximum
-            if(this.currentBlock.getTransactions().size() >= MAX_TRANSACTIONS){
+            if (this.currentBlock.getTransactions().size() >= MAX_TRANSACTIONS) {
                 createBlock();
             }
             // And then announce it to my peers
@@ -149,17 +152,51 @@ public class Node {
     // Receiving the blocks
     public void getBlockAnnouncement(Block block) {
 
-        if (this.currentBlock == null)
-            this.currentBlock = new Block();
+        // Check if I already have the received block or not
+        if (!this.blockLength.containsKey(block.getHash())) {
 
-        // Check if I already have the received transaction or not
-        if (!this.hashes.contains(block.getHash())) {
+            currentBlock.removeDuplicateTrans(block);
+            // Drop it if the prev hash wasn't found
+            if (blockLength.containsKey(block.getPrevHash())) {
 
-            // Add hash value
-            this.hashes.add(block.getHash());
+                // Check longest chain
+                int newLength = blockLength.get(block.getPrevHash()) + 1;
+                blockLength.put(block.getHash(), newLength);
 
-            // And then announce it to my peers
-            announceBlock(block);
+                int currLongestLength = blockChain.getlongestChainLength();
+
+                if (newLength > currLongestLength) {
+                    blockChain.addBlock(block);
+
+                    for (int i = blockChain.getlongestChainLength(); i > 0; i--) {
+                        Block currBlock = blockChain.getBlock(i);
+                        Block prevBlock = blockChain.getBlock(i - 1);
+
+                        // Check if we reached the start of the sub-set to be swapped
+                        if (currBlock.getPrevHash().equals(prevBlock.getHash())) break;
+                        else {
+                            // Choose + Remove from the cache the block having the prev hash
+                            Block blockToSwap = blockCache.remove(currBlock.getPrevHash());
+
+                            // Add the prev block to the cache
+                            blockCache.put(prevBlock.getHash(), prevBlock);
+
+                            // Remove the prev block from the block chain
+                            blockChain.getLedger().remove(prevBlock);
+
+                            // Add the block from the cache to the current blockchain
+                            blockChain.addBlock(i - 1, blockToSwap);
+
+                        }
+                    }
+                } else {
+                    // Cache the block
+                    blockCache.put(block.getHash(), block);
+                }
+
+                // And then announce it to my peers
+                announceBlock(block);
+            }
         }
     }
 
