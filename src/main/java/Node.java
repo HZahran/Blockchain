@@ -157,6 +157,8 @@ public class Node {
                 }
             }
         }
+        // Reset currentBlock
+        currentBlock = new Block();
     }
 
     // Receiving the blocks
